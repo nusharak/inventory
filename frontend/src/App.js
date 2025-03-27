@@ -1,15 +1,18 @@
+// src/App.js
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar'; // Import Navbar
 import ProductsPage from './pages/ProductPages';
-import AddProductPage from './components/AddProduct'
+import AddProductPage from './components/AddProduct';
 import CustomersPage from './pages/CustomerPage';
 import AddCustomerPage from './components/AddCustomer';
-import CustomerProductsPage from './pages/CustomerProductPage'
+import CustomerProductsPage from './pages/CustomerProductPage';
 import OrdersPage from './pages/OrderPage';
 import Dashboard from './pages/DashboardPage';
+import HomePage from './pages/HomePage'; // Import HomePage
+import SignUpPage from './pages/SignUpPage'; // Import SignUpPage
 
 const App = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -21,8 +24,10 @@ const App = () => {
   return (
     <Router>
       <div style={{ display: 'flex', height: '100vh' }}>
-        {/* Sidebar */}
-        <Sidebar mobileOpen={mobileOpen} handleDrawerToggle={handleDrawerToggle} />
+        {/* Conditionally render the Sidebar based on the route */}
+        {window.location.pathname !== '/' && (
+          <Sidebar mobileOpen={mobileOpen} handleDrawerToggle={handleDrawerToggle} />
+        )}
 
         {/* Main Content */}
         <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -32,7 +37,8 @@ const App = () => {
           {/* Main Content Area */}
           <div style={{ marginTop: 64 }}> {/* Add `marginTop` to offset the Navbar */}
             <Routes>
-              <Route path="/" element={<Navigate to="/products" />} />
+              <Route path="/" element={<HomePage />} /> {/* HomePage as the initial route */}
+              <Route path="/sign-up" element={<SignUpPage />} /> {/* Sign-Up Page */}
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/add-product" element={<AddProductPage />} />
               <Route path="/edit-product/:product_id" element={<AddProductPage />} />
