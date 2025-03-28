@@ -21,9 +21,8 @@ import {
 import { useParams } from "react-router-dom";
 import axios from "../utils/api";
 import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import 'react-toastify/dist/ReactToastify.css'; 
 import { BASE_URL } from "../constants/DefaultValues";
-import { v4 as uuidv4 } from 'uuid'; // For generating temporary IDs
 
 const CustomerProductsPage = () => {
   const { customer_id } = useParams();
@@ -36,161 +35,97 @@ const CustomerProductsPage = () => {
   const [cashAmount, setCashAmount] = useState(0);
   const [chequeAmount, setChequeAmount] = useState(0);
   const productsPerPage = 6;
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  useEffect(() => {
-    const handleOnlineStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', handleOnlineStatus);
-    window.addEventListener('offline', handleOnlineStatus);
+  const fetchDataForCustomerView = () => {
+    axios.get(`/customer-product-view/${customer_id}`).then((res) => {
+      if (res.status === 200) {
+        const { customer, products, cartItems } = res.data;
+        const productsMap = products.reduce((acc, product) => {
+          acc[product.id] = product;
+          return acc;
+        }, {});
+        const updatedCartItems = cartItems.map((cartItem) => {
+          const matchingProduct = productsMap[cartItem.product_id];
 
-    return () => {
-      window.removeEventListener('online', handleOnlineStatus);
-      window.removeEventListener('offline', handleOnlineStatus);
-    };
-  }, []);
-
-  const fetchDataForCustomerView = async () => {
-    try {
-      if (isOnline) {
-        const res = await axios.get(`/customer-product-view/${customer_id}`);
-        if (res.status === 200) {
-          const { customer, products: serverProducts, cartItems: serverCartItems } = res.data;
-          const productsMap = serverProducts.reduce((acc, product) => {
-            acc[product.id] = product;
-            return acc;
-          }, {});
-          const updatedCartItems = serverCartItems.map((cartItem) => {
-            const matchingProduct = productsMap[cartItem.product_id];
-            return matchingProduct ? { ...cartItem, ...matchingProduct } : cartItem;
-          });
-          const remainingProducts = serverProducts.filter(
-            (product) => !serverCartItems.some((cartItem) => cartItem.product_id === product.id)
-          );
-          setCustomerData(customer);
-          setProducts(remainingProducts);
-          setCart(updatedCartItems);
-          localStorage.setItem(`cart_${customer_id}`, JSON.stringify(updatedCartItems));
-        }
-      } else {
-        const storedCart = localStorage.getItem(`cart_${customer_id}`);
-        if (storedCart) {
-          setCart(JSON.parse(storedCart));
-        }
-        // Fetch products from local storage or a predefined list if needed offline
-        // This part depends on how you want to handle products offline
-        // For simplicity, we might only show what's in the cart offline.
-        // If you have a way to store product details offline, you can retrieve them here.
-        // Example: setProducts(JSON.parse(localStorage.getItem('offline_products') || '[]'));
+          if (matchingProduct) {
+            return {
+              ...cartItem,
+              name: matchingProduct.name,
+              description: matchingProduct.description,
+              image: matchingProduct.image,
+              price: matchingProduct.price,
+              stock: matchingProduct.stock,
+            };
+          }
+          return cartItem;
+        });
+        const remainingProducts = products.filter(
+          (product) =>
+            !cartItems.some((cartItem) => cartItem.product_id === product.id)
+        );
+        setCustomerData(customer);
+        setProducts(remainingProducts);
+        setCart(updatedCartItems);
       }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      if (!isOnline) {
-        toast.error("Data is not available offline. Please connect to the internet.");
-      }
-    }
+    });
   };
 
   useEffect(() => {
     fetchDataForCustomerView();
-  }, [customer_id, isOnline]);
+  }, [customer_id]);
 
   const addToCart = (product) => {
-    if (isOnline) {
-      axios
-        .post("/cart/add-to-cart", {
-          customer_id: customer_id,
-          product_id: product.id,
-          product_name: product.name,
-          quantity: 1,
-        })
-        .then((res) => {
-          if (res.status === 200) {
-            fetchDataForCustomerView();
-          }
-        })
-        .catch((err) => {
-          console.error("Error adding to cart:", err);
-          toast.error("Failed to add to cart. Please try again.");
-        });
-    } else {
-      const existingItem = cart.find(item => item.product_id === product.id);
-      if (existingItem) {
-        const updatedCart = cart.map(item =>
-          item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-        setCart(updatedCart);
-        localStorage.setItem(`cart_${customer_id}`, JSON.stringify(updatedCart));
-      } else {
-        const newItem = {
-          id: uuidv4(), // Temporary ID for offline cart item
-          customer_id: customer_id,
-          product_id: product.id,
-          name: product.name,
-          description: product.description,
-          image: product.image,
-          price: product.price,
-          stock: product.stock,
-          quantity: 1,
-        };
-        setCart([...cart, newItem]);
-        localStorage.setItem(`cart_${customer_id}`, JSON.stringify([...cart, newItem]));
-      }
-      toast.success(`${product.name} added to cart (offline).`);
-    }
+    axios
+      .post("/cart/add-to-cart", {
+        customer_id: customer_id,
+        product_id: product.id,
+        product_name: product.name,
+        quantity: 1,
+      })
+      .then((res) => {
+        if (res.status === 200) {
+          fetchDataForCustomerView();
+        }
+      })
+      .catch((err) => {
+        console.error("Error adding to cart:", err);
+      });
   };
 
   const removeFromCart = (productId) => {
-    if (isOnline) {
-      const cartItem = cart.find((item) => item.product_id === productId);
-      if (!cartItem) return;
-      axios
-        .delete(`/cart/${cartItem.id}`, {
-          data: { cart_id: cartItem.id, product_id: productId },
-        })
-        .then((res) => {
-          if (res.status === 200) {
-            fetchDataForCustomerView();
-          }
-        })
-        .catch((err) => {
-          console.error("Error removing from cart:", err);
-          toast.error("Failed to remove from cart. Please try again.");
-        });
-    } else {
-      const updatedCart = cart.filter(item => item.product_id !== productId);
-      setCart(updatedCart);
-      localStorage.setItem(`cart_${customer_id}`, JSON.stringify(updatedCart));
-      toast.success("Item removed from cart (offline).");
-    }
+    const cartItem = cart.find((item) => item.product_id === productId);
+    if (!cartItem) return;
+    axios
+      .delete(`/cart/${cartItem.id}`, {
+        data: { cart_id: cartItem.id, product_id: productId },
+      })
+      .then((res) => {
+        if (res.status === 200) {
+          fetchDataForCustomerView();
+        }
+      })
+      .catch((err) => {
+        console.error("Error removing from cart:", err);
+      });
   };
 
   const updateQuantity = (productId, newQuantity) => {
-    if (isOnline) {
-      const cartItem = cart.find((item) => item.product_id === productId);
-      if (!cartItem) return;
-      axios
-        .put(`/cart/${cartItem.id}`, {
-          cart_id: cartItem.id,
-          product_id: productId,
-          new_quantity: newQuantity,
-        })
-        .then((res) => {
-          if (res.status === 200) {
-            fetchDataForCustomerView();
-          }
-        })
-        .catch((err) => {
-          console.error("Error updating cart quantity:", err);
-          toast.error("Failed to update quantity. Please try again.");
-        });
-    } else {
-      const updatedCart = cart.map(item =>
-        item.product_id === productId ? { ...item, quantity: newQuantity } : item
-      );
-      setCart(updatedCart);
-      localStorage.setItem(`cart_${customer_id}`, JSON.stringify(updatedCart));
-      toast.success("Cart quantity updated (offline).");
-    }
+    const cartItem = cart.find((item) => item.product_id === productId);
+    if (!cartItem) return;
+    axios
+      .put(`/cart/${cartItem.id}`, {
+        cart_id: cartItem.id,
+        product_id: productId,
+        new_quantity: newQuantity,
+      })
+      .then((res) => {
+        if (res.status === 200) {
+          fetchDataForCustomerView();
+        }
+      })
+      .catch((err) => {
+        console.error("Error updating cart quantity:", err);
+      });
   };
 
   const handlePageChange = (event, value) => {
@@ -213,12 +148,11 @@ const CustomerProductsPage = () => {
     setChequeAmount(0);
   };
 
-  const handleProceed = async () => {
+  const handleProceed = () => {
     const totalAmount = calculateCartTotal();
-    let balance = 0;
-
+    let balance = 0
     if (paymentMode === "cash") {
-      balance = cashAmount - totalAmount;
+     balance = cashAmount - totalAmount;
       if (cashAmount < totalAmount) {
         toast.error("Insufficient cash. Please provide the correct amount.");
         return;
@@ -232,47 +166,26 @@ const CustomerProductsPage = () => {
       toast.success("Order placed successfully with cheque payment!");
     }
 
-    if (isOnline) {
-      try {
-        const res = await axios.post("customer/add-order", {
-          customer_id: customer_id,
-          customer_name: customerData?.first_name + ' ' + customerData?.last_name,
-          cartItems: cart.map(item => ({ product_id: item.product_id, quantity: item.quantity })),
-          paymentMode: paymentMode,
-          totalAmount,
-          balance: balance,
-        });
+    axios
+      .post("customer/add-order", {
+        customer_id: customer_id,
+        customer_name:customerData?.first_name+' '+customerData?.last_name,
+        cartItems: cart,
+        paymentMode: paymentMode,
+        totalAmount,
+        balance:balance,
+      })
+      .then((res) => {
         if (res.status === 200) {
           toast.success("Order created successfully!");
-          localStorage.removeItem(`cart_${customer_id}`); // Clear local cart after successful order
-          setCart([]);
           window.history.back();
           setIsDialogOpen(false);
           fetchDataForCustomerView();
         }
-      } catch (error) {
-        console.error("Error creating order:", error);
-        toast.error("Failed to create order. Please try again.");
-      }
-    } else {
-      // Store order details locally for later submission when online
-      const offlineOrder = {
-        customer_id: customer_id,
-        customer_name: customerData?.first_name + ' ' + customerData?.last_name,
-        cartItems: cart.map(item => ({ product_id: item.product_id, quantity: item.quantity })),
-        paymentMode: paymentMode,
-        totalAmount,
-        balance: balance,
-        timestamp: new Date().toISOString(),
-      };
-      const offlineOrders = JSON.parse(localStorage.getItem('offline_orders') || '[]');
-      localStorage.setItem('offline_orders', JSON.stringify([...offlineOrders, offlineOrder]));
-      toast.success("Order saved locally. It will be submitted when you are online.");
-      localStorage.removeItem(`cart_${customer_id}`);
-      setCart([]);
-      window.history.back();
-      setIsDialogOpen(false);
-    }
+      })
+      .catch((err) => {
+        console.error("Error creating order:", err);
+      });
   };
 
   const handlePayment = () => {
@@ -281,27 +194,6 @@ const CustomerProductsPage = () => {
     }
     setIsDialogOpen(true);
   };
-
-  useEffect(() => {
-    if (isOnline) {
-      const offlineOrders = JSON.parse(localStorage.getItem('offline_orders') || '[]');
-      offlineOrders.forEach(async (order) => {
-        try {
-          const res = await axios.post("customer/add-order", order);
-          if (res.status === 200) {
-            toast.success("Offline order submitted successfully!");
-            const updatedOfflineOrders = offlineOrders.filter(o => o.timestamp !== order.timestamp);
-            localStorage.setItem('offline_orders', JSON.stringify(updatedOfflineOrders));
-          } else {
-            toast.error("Failed to submit offline order.");
-          }
-        } catch (error) {
-          console.error("Error submitting offline order:", error);
-          toast.error("Failed to submit offline order.");
-        }
-      });
-    }
-  }, [isOnline]);
 
   return (
     <Box sx={{ display: 'flex', flexWrap: 'nowrap', padding: 3, gap: 3 }}>
@@ -451,7 +343,7 @@ const CustomerProductsPage = () => {
             sx={{ mt: 2 }}
           >
             <FormControlLabel value="cash" control={<Radio />} label="Cash" />
-            {/* <FormControlLabel value="cheque" control={<Radio />} label="Cheque" /> */}
+            <FormControlLabel value="cheque" control={<Radio />} label="Cheque" />
           </RadioGroup>
           <Button
             variant="contained"onClick={handlePayment}
