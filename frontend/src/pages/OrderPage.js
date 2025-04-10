@@ -18,6 +18,8 @@ const OrdersPage = () => {
   const receiptRef = useRef();
 
   const fetchOrders = () => {
+    console.log("$$$$$$$$$$$$$$$$$$");
+   
     axios.get(`customer-orders/${customer_id}`)
       .then((res) => {
         if (res.status === 200) {

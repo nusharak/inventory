@@ -163,6 +163,7 @@ const addCustomer = async (req, res) => {
   const getCustomerOrders=async(req,res)=>{
     try {
       const {customer_id} = req.params
+      
       const customerOrders = await CustomerOrders.getOrdersByCustomerId(customer_id)
       if(customerOrders){
         res.status(200).json({

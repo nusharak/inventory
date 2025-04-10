@@ -66,8 +66,18 @@ const updateCustomerOrder=async(data,id)=>{
 }
 const getOrdersByCustomerId=async(customer_id)=>{
   try {
-  let result = await sequelize.query(`select * from customer_orders
-     where customer_id = ${customer_id} order by order_id desc`)
+    let result=[]
+    console.log("#####Hifiiii");
+    
+    if(customer_id==="undefined"){
+       result = await sequelize.query(`select * from customer_orders
+         order by order_id desc`)
+    }
+    else{
+      result = await sequelize.query(`select * from customer_orders
+        where customer_id = ${customer_id} order by order_id desc`)
+    }
+  
     if(result[0].length>0){
       return result[0]
     }else{

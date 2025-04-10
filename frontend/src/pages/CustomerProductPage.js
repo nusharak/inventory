@@ -343,7 +343,7 @@ const CustomerProductsPage = () => {
             sx={{ mt: 2 }}
           >
             <FormControlLabel value="cash" control={<Radio />} label="Cash" />
-            <FormControlLabel value="cheque" control={<Radio />} label="Cheque" />
+            <FormControlLabel value="G-pay" control={<Radio />} label="G-pay" />
           </RadioGroup>
           <Button
             variant="contained"onClick={handlePayment}
